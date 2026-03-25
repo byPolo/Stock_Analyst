@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Stock Analyst</title>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <style>
+        body { font-family: sans-serif; margin: 0; background-color: #f4f7f6; }
+        .navbar {
+            display: flex;
+            justify-content: space-between;
+            background-color: #2c3e50;
+            color: white;
+            padding: 1rem 2rem;
+            align-items: center;
+        }
+        .nav-links a { color: white; margin-right: 20px; text-decoration: none; font-weight: bold; }
+        .account-link a { color: #3498db; text-decoration: none; }
+        .container { padding: 20px; }
+        .index-hero { text-align: center; padding: 40px; background: #fff; border-bottom: 1px solid #ddd; }
+        .card { display: inline-block; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-top: 4px solid #3498db; }
+    </style>
+</head>
+<body>
+
+<nav class="navbar">
+    <div class="nav-links">
+        <a href="/">Home</a>
+        <a href="/indexes">Indexes</a>
+        <a href="/stocks">Stocks</a>
+    </div>
+    <div class="account-link">
+        {% if username and username != "Guest" %}
+            <span>Hello, {{ username }} | Balance: ${{ "{:,.2f}".format(balance) }}</span>
+            <a href="/profile" style="margin-left: 10px;">My Account</a>
+        {% else %}
+            <a href="/login" style="background: #3498db; color: white; padding: 5px 15px; border-radius: 4px; text-decoration: none;">Login</a>
+        {% endif %}
+    </div>
+</nav>
+
+{% if not username or username == "Guest" %}
+<div class="index-hero">
+    <h1>Welcome to Stock Analyst</h1>
+    <div class="card">
+        <h3>{{ market_data.name }}</h3>
+        <p style="font-size: 2em; margin: 10px 0;">${{ "{:,.2f}".format(market_data.price) }}</p>
+        <p style="color: {{ 'green' if market_data.change >= 0 else 'red' }}">
+            {{ market_data.change }} ({{ market_data.percent }}%)
+        </p>
+    </div>
+</div>
+{% endif %}
+
+<div class="container">
+    {% block content %}{% endblock %}
+</div>
+
+</body>
+</html>
