@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Stock Analyst</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
     <style>
         body { font-family: sans-serif; margin: 0; background-color: #f4f7f6; }
@@ -33,6 +34,7 @@
         {% if username and username != "Guest" %}
             <span>Hello, {{ username }} | Balance: ${{ "{:,.2f}".format(balance) }}</span>
             <a href="/profile" style="margin-left: 10px;">My Account</a>
+        <a href="/" style="margin-left: 15px; color: #e74c3c; text-decoration: none; font-weight: bold;">Logout</a>
         {% else %}
             <a href="/login" style="background: #3498db; color: white; padding: 5px 15px; border-radius: 4px; text-decoration: none;">Login</a>
         {% endif %}
@@ -42,13 +44,13 @@
 {% if not username or username == "Guest" %}
 <div class="index-hero">
     <h1>Welcome to Stock Analyst</h1>
-    <div class="card">
-        <h3>{{ market_data.name }}</h3>
-        <p style="font-size: 2em; margin: 10px 0;">${{ "{:,.2f}".format(market_data.price) }}</p>
-        <p style="color: {{ 'green' if market_data.change >= 0 else 'red' }}">
-            {{ market_data.change }} ({{ market_data.percent }}%)
-        </p>
-    </div>
+    <div id="tester" style="width: 80%; max-width: 800px; margin: 0 auto; height: 400px; background: white; border-radius: 10px; padding: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);"></div>
+    {% if graph_json %}
+    <script type="text/javascript">
+        var graphData = {{ graph_json | safe }};
+        Plotly.newPlot('tester', graphData.data, graphData.layout);
+    </script>
+    {% endif %}
 </div>
 {% endif %}
 

@@ -1,4 +1,8 @@
 import yfinance as yf
+import plotly.express as px
+import plotly.io as pio
+import plotly.graph_objects as go
+import json
 from fastapi import FastAPI, HTTPException, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -25,49 +29,52 @@ db_users = {
         "balance": 10000.0,
     }
 }
+
+
+# --- HELPERS ---
+#S&P 500 graph plotter
+def create_sp500_chart():
+    df = yf.Ticker("^GSPC").history(period="2y").reset_index()
+    fig = go.Figure(go.Scatter(x=list(df.Date), y=list(df.Close), name="S&P 500"))
+
+    fig.update_layout(
+        title_text="S&P 500 Performance Analysis",
+        template="plotly_white",
+        xaxis=dict(
+            rangeselector=dict(
+                buttons=[
+                    dict(count=1, label="1m", step="month", stepmode="backward"),
+                    dict(count=6, label="6m", step="month", stepmode="backward"),
+                    dict(step="all")
+                ]
+            ),
+            rangeslider=dict(visible=True),
+            type="date"
+        )
+    )
+
+    # Get stats for the navbar
+    current = round(df['Close'].iloc[-1], 2)
+    prev = round(df['Close'].iloc[-2], 2)
+    stats = {"price": current, "change": round(current - prev, 2)}
+
+    return pio.to_json(fig), stats
+
+#--- Routes ---
 #Default home page
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request, username: str = "Guest"):
-    # 1. Fetch Real Market Data for S&P 500
-    sp500 = yf.Ticker("^GSPC")
-    data = sp500.history(period="1d")
-    price = round(data['Close'].iloc[-1], 2)
-
-    # Get the latest closing price and the change
-    current_price = round(data['Close'].iloc[-1], 2)
-    prev_close = sp500.info.get('previousClose', current_price)
-    change = round(current_price - prev_close, 2)
-    change_percent = round((change / prev_close) * 100, 2)
-
-    #Not sure if its smart to have the logic here for a logged in user, maybe in the future it is better to have it in its separate .get
-    user_data = db_users.get(username)
+    # If a user is already "logged in", send them straight to the dashboard
     if username != "Guest":
-        return templates.TemplateResponse(
-            request=request,
-            name="dashboard.html",
-            context={
-                "request": request,
-                "username": username,
-                "is_logged_in": user_data is not None,
-                "balance": user_data.get("balance") if user_data else 0,
-                "market_data": {
-                    "name": "S&P 500",
-                    "price": current_price,
-                    "change": change,
-                    "percent": change_percent
-                }
-            }
-        )
+        return RedirectResponse(url=f"/dashboard?username={username}")
 
-    return templates.TemplateResponse(request=request, name="base_layout.html", context={
+    graph_json, stats = create_sp500_chart()
+
+    return templates.TemplateResponse(request=request,name="base_layout.html", context={
         "request": request,
         "username": "Guest",
-        "market_data": {
-                    "name": "S&P 500",
-                    "price": current_price,
-                    "change": change,
-                    "percent": change_percent
-                }
+        "graph_json": graph_json,
+        "market_data": {"name": "S&P 500", **stats}
     })
 
 @app.get("/dashboard", response_class=HTMLResponse)
@@ -102,6 +109,12 @@ async def login(request: Request, username: str = Form(...), password: str = For
 
     return "<div style='color: red;'>Invalid username or password.</div>"
 
+#Logout logic for now, it works fine without this for some reason. Guessing html somehow already takes care of it
+@app.get("/logout")
+async def logout():
+    # In the future, this is where you would delete the Session Cookie
+    # For now, we just redirect to the main landing page
+    return RedirectResponse(url="/")
 
 #Users in the fictional Database
 @app.get("/admin/users")
