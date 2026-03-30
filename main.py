@@ -1,4 +1,7 @@
 import yfinance as yf
+from database import engine,Base, SessionLocal
+import models
+from models import User
 import plotly.express as px
 import plotly.io as pio
 import plotly.graph_objects as go
@@ -7,31 +10,20 @@ from fastapi import FastAPI, HTTPException, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
+Base.metadata.create_all(bind=engine)
 app = FastAPI()
 
 templates = Jinja2Templates(directory="templates")
-# Test database for users todo integrate actual database later
-db_users = {
-    "admin_Polo": {
-        "username": "admin_Polo",
-        "password": "Polo123",
-        "email": "admin@stockanalyst.com",
-        "full_name": "Polo admin",
-        "is_admin": True,
-        "balance": 1000000.0,
-    },
-    "trader_joe": {
-        "username": "trader_joe",
-        "password": "123",
-        "email": "joe@example.com",
-        "full_name": "Joe Trader",
-        "is_admin": False,
-        "balance": 10000.0,
-    }
-}
-
 
 # --- HELPERS ---
+#database session for each request
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
 #S&P 500 graph plotter
 def create_sp500_chart():
     df = yf.Ticker("^GSPC").history(period="2y").reset_index()
@@ -65,7 +57,7 @@ def create_sp500_chart():
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request, username: str = "Guest"):
     # If a user is already "logged in", send them straight to the dashboard
-    if username != "Guest":
+    if username and username != "Guest":
         return RedirectResponse(url=f"/dashboard?username={username}")
 
     graph_json, stats = create_sp500_chart()
@@ -79,12 +71,18 @@ async def home(request: Request, username: str = "Guest"):
 
 @app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard(request: Request, username: str = "Guest"):
-    # In a real app, we'd get the user data from a session or cookie
-    user = db_users.get(username, {"balance": 0})
+    db = SessionLocal()
+
+    user = db.query(User).filter(User.username == username).first()
+    db.close()
+
+    if not user:
+        return RedirectResponse(url="/login")
+
     return templates.TemplateResponse(request=request, name="dashboard.html", context={
         "request": request,
         "username": username,
-        "balance": user.get("balance")
+        "balance": user.balance
     })
 
 #Login Page Layout
@@ -97,14 +95,16 @@ async def login_page(request: Request):
     )
 @app.post("/login")
 async def login(request: Request, username: str = Form(...), password: str = Form(...)):
-    # Check if user exists and password matches
-    user_data = db_users.get(username)
+    db = SessionLocal()
+    # Look for the user in the database file
+    user = db.query(User).filter(User.username == username).first()
+    db.close()
 
-    if user_data and user_data["password"] == password:
+    if user and user.password == password:
         # Instead of just text, we tell HTMX to trigger a redirect
         # HX-Redirect is a special header HTMX understands
         response = HTMLResponse(content="Logging in...")
-        response.headers["HX-Redirect"] = f"/dashboard?username={username}"
+        response.headers["HX-Redirect"] = f"/dashboard?username={user.username}"
         return response
 
     return "<div style='color: red;'>Invalid username or password.</div>"
@@ -116,16 +116,5 @@ async def logout():
     # For now, we just redirect to the main landing page
     return RedirectResponse(url="/")
 
-#Users in the fictional Database
-@app.get("/admin/users")
-async def get_all_users():
-    # In a real app, you'd check if the requester 'is_admin' here
-    return db_users
-
-@app.get("/users/{username}")
-async def get_user(username: str):
-    if username not in db_users:
-        raise HTTPException(status_code=404, detail="User not found")
-    return db_users[username]
 
 

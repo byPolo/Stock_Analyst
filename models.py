@@ -1,12 +1,16 @@
-from pydantic import BaseModel, EmailStr
-from typing import Optional
+from sqlalchemy import Column, Integer, String, Float, Boolean
+from database import Base
 
-class User(BaseModel):
-    username: str
-    password: str
-    email: EmailStr
-    full_name: Optional[str] = None
-    is_admin: bool = False
-    balance: float = 10000.0
+class User(Base):
+    __tablename__ = "users" # This is the actual name inside the SQL file
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, unique=True, index=True)
+    password = Column(String)
+    email = Column(String)
+    balance = Column(Float, default=10000.0)
+    is_admin = Column(Boolean, default=False)
+
+
 
 
