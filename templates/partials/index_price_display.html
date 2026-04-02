@@ -1,0 +1,9 @@
+
+<div style="margin: 15px 0;">
+    <span style="font-size: 2em; font-weight: bold;">
+        ${{ "{:,.2f}".format(stats.price) }}
+    </span>
+    <div style="color: {{ stats.color }}; font-weight: bold;">
+        {{ "+" if stats.change > 0 }}{{ stats.change }} ({{ stats.percent }}%)
+    </div>
+</div>

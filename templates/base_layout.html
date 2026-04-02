@@ -27,8 +27,8 @@
 <nav class="navbar">
     <div class="nav-links">
         <a href="/?username={{ username }}">Home</a>
-        <a href="/indexes">Indexes</a>
-        <a href="/stocks">Stocks</a>
+        <a href="/indexes?username={{ username }}">Indexes</a>
+        <a href="/stocks?username={{ username }}">Stocks</a>
     </div>
     <div class="account-link">
         {% if username and username != "Guest" %}

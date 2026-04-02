@@ -1,0 +1,54 @@
+{% extends "base_layout.html" %}
+
+{% block content %}
+<div class="container" style="padding: 20px;">
+    <h1>Market Indexes</h1>
+    <p>Current Buying Power: <strong>${{ "%.2f"|format(balance) }}</strong></p>
+    <hr>
+
+    <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+        {% for idx in indexes %}
+        <div class="index-card" style="border: 1px solid #ddd; border-radius: 12px; padding: 20px; width: 300px; background: white;">
+            <h3>{{ idx.name }}</h3>
+
+            <div id="price-container-{{ idx.safe_id }}">
+                <div style="margin: 15px 0;">
+                    <span style="font-size: 2em; font-weight: bold;">
+                        ${{ "{:,.2f}".format(idx.price) }}
+                    </span>
+                    <div style="color: {{ idx.color }}; font-weight: bold;">
+                        {{ "+" if idx.change > 0 }}{{ idx.change }} ({{ idx.percent }}%)
+                    </div>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 5px; margin-bottom: 15px;">
+                {% for p in ['2d', '5d', '1mo', '1y'] %}
+                <button hx-get="/api/index-stats/{{ idx.ticker }}?period={{ p }}"
+                        hx-target="#price-container-{{ idx.safe_id }}"
+                        hx-swap="innerHTML"
+                        type="button"
+                        style="padding: 4px 8px; font-size: 0.75em; border: 1px solid #ddd; background: #f8f9fa; border-radius: 4px; cursor: pointer; text-transform: uppercase;">
+                    {{ p }}
+                </button>
+                {% endfor %}
+            </div>
+
+            <p style="color: #666; font-size: 0.8em;">{{ idx.desc }}</p>
+            <p><strong>Ticker:</strong> {{ idx.ticker }}</p>
+
+            <form hx-post="/buy?username={{ username }}" hx-target="#status-{{ loop.index }}">
+                <input type="hidden" name="ticker" value="{{ idx.ticker }}">
+                <div style="margin: 10px 0;">
+                    <input type="number" name="amount" placeholder="Amount in USD" step="0.01" required style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ccc;">
+                </div>
+                <button type="submit" style="width: 100%; background: #007bff; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer;">
+                    Invest in {{ idx.name }}
+                </button>
+            </form>
+            <div id="status-{{ loop.index }}" style="margin-top: 10px; font-size: 0.85em;"></div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

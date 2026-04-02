@@ -1,14 +1,14 @@
-import yfinance as yf
 from database import engine,Base, SessionLocal
 import models
-from models import User
-import plotly.express as px
-import plotly.io as pio
-import plotly.graph_objects as go
-import json
+from models import User, Portfolio
 from fastapi import FastAPI, HTTPException, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+import yfinance as yf
+import plotly.express as px
+import plotly.io as pio
+import plotly.graph_objects as go
+
 
 Base.metadata.create_all(bind=engine)
 app = FastAPI()
@@ -45,12 +45,34 @@ def create_sp500_chart():
         )
     )
 
-    # Get stats for the navbar
+    # Get stats for the index
     current = round(df['Close'].iloc[-1], 2)
     prev = round(df['Close'].iloc[-2], 2)
     stats = {"price": current, "change": round(current - prev, 2)}
 
     return pio.to_json(fig), stats
+
+
+def get_index_stats(ticker_symbol, period="2d"):
+    ticker = yf.Ticker(ticker_symbol)
+    hist = ticker.history(period=period)
+
+    if hist.empty or len(hist) < 2:
+        return None
+
+    current_price = hist['Close'].iloc[-1]
+    start_price = hist['Close'].iloc[0]  # Price at the start of the 1D, 5D, etc.
+
+    change = current_price - start_price
+    percent = (change / start_price) * 100
+
+    return {
+        "price": round(current_price, 2),
+        "change": round(change, 2),
+        "percent": round(percent, 2),
+        "color": "green" if change >= 0 else "red",
+        "ticker": ticker_symbol
+    }
 
 #--- Routes ---
 #Default home page
@@ -69,6 +91,7 @@ async def home(request: Request, username: str = "Guest"):
         "market_data": {"name": "S&P 500", **stats}
     })
 
+#Dashboard functions
 @app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard(request: Request, username: str = "Guest"):
     db = SessionLocal()
@@ -116,5 +139,44 @@ async def logout():
     # For now, we just redirect to the main landing page
     return RedirectResponse(url="/")
 
+#Index Page Layout
+@app.get("/indexes", response_class=HTMLResponse)
+async def indexes_page(request: Request, username: str = "Guest"):
+    if username == "Guest":
+        return RedirectResponse(url="/login")
+
+    db = SessionLocal()
+    user = db.query(User).filter(User.username == username).first()
+    db.close()
+
+    # Define indexes and fetch live data for them
+    index_list = [{"name": "S&P 500", "ticker": "^GSPC","safe_id":"GSPC", "desc": "Top 500 US Companies"},]
+
+    # Add live data to each index dictionary
+    for idx in index_list:
+        market_info = get_index_stats(idx["ticker"])
+        idx.update(market_info) # Merges the price/change into the dict
+
+    return templates.TemplateResponse(request=request,name="indexes.html", context={
+        "request": request,
+        "username": username,
+        "balance": user.balance,
+        "indexes": index_list
+    })
+#Function for the partial HTMX template
+@app.get("/api/index-stats/{ticker}")
+async def update_index_stats(request: Request, ticker: str, period: str = "2d"):
+    stats = get_index_stats(ticker, period)
+    # Strip the ^ for the template context
+    safe_id = ticker.replace("^", "")
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/index_price_display.html",
+        context={
+            "request": request,
+            "stats": stats,
+            "safe_id": safe_id
+        }
+    )
 
 
