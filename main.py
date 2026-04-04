@@ -1,4 +1,5 @@
 from database import engine,Base, SessionLocal
+import uvicorn
 import models
 from models import User, Portfolio
 from fastapi import FastAPI, HTTPException, Request, Form
@@ -9,12 +10,13 @@ import plotly.express as px
 import plotly.io as pio
 import plotly.graph_objects as go
 
-
-Base.metadata.create_all(bind=engine)
 app = FastAPI()
 
 templates = Jinja2Templates(directory="templates")
 
+print("Connecting to database...")
+Base.metadata.create_all(bind=engine)
+print("Database tables created successfully!")
 # --- HELPERS ---
 #database session for each request
 def get_db():
@@ -180,3 +182,5 @@ async def update_index_stats(request: Request, ticker: str, period: str = "2d"):
     )
 
 
+if __name__ == "__main__":
+    uvicorn.run(app, host="127.0.0.1", port=8000)
